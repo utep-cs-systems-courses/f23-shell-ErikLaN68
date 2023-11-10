@@ -18,7 +18,7 @@ elif rc == 0:                   # child
     args = ["wc", "p3-exec.py"]
 
     os.close(1)                 # redirect child's stdout
-    os.open("p4-output.txt", os.O_CREAT | os.O_WRONLY);
+    os.open("p4-output.txt", os.O_CREAT | os.O_WRONLY)
     os.set_inheritable(1, True)
 
     for dir in re.split(":", os.environ['PATH']): # try each directory in path

@@ -11,15 +11,10 @@ def childMake(args):
     if rc < 0:
         os.write(2, ("fork failed, returning %d\n" % rc).encode())
         sys.exit(1)
-
-    elif rc == 0:                   # child
-        # os.write(1, ("Child: My pid==%d.  Parent's pid=%d\n" % 
-        #            (os.getpid(), pid)).encode())
-        #Don't need this because args are given from user
-        #args = ["wc", "p3-exec.py"]
+    # child
+    elif rc == 0:
         for dir in re.split(":", os.environ['PATH']): # try each directory in the path
             program = "%s/%s" % (dir, args[0])
-            #os.write(1, ("Child:  ...trying to exec %s\n" % program).encode())
             try:
                 os.execve(program, args, os.environ) # try to exec program
             except FileNotFoundError:             # ...expected
@@ -27,8 +22,8 @@ def childMake(args):
 
         os.write(2, ("Child:    Could not exec %s\n" % args[0]).encode())
         sys.exit(1)                 # terminate with error
-
-    else:                           # parent (forked ok)
+    # parent (forked ok)
+    else:
         os.write(1, ("Parent: My pid=%d.  Child's pid=%d\n" % 
                     (pid, rc)).encode())
         # waits for child to exit out
@@ -41,9 +36,7 @@ def parseCommand():
     
 while True:
     userCommand = input('erikShell$ ')
-    # print(" Echo given command " + userCommand)
     if userCommand.lower() == 'exit':
         exit()
     parsedCommand = parseCommand()
-    # print(parsedCommand)
     childMake(parsedCommand)
