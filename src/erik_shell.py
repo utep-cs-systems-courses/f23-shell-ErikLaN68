@@ -2,7 +2,7 @@
 
 import os, sys, re
 
-pidRunning = {}
+pidRunning = []
 
 def runProcess(args):
     pid = os.getpid()
@@ -43,6 +43,7 @@ def runProcessBackGround(args):
         for dir in re.split(":", os.environ['PATH']): # try each directory in the path
             program = "%s/%s" % (dir, args[0])
             try:
+                # pidRunning[rc] = pid
                 os.execve(program, args, os.environ) # try to exec program
             except FileNotFoundError:             # ...expected
                 pass                              # ...fail quietly
@@ -51,7 +52,7 @@ def runProcessBackGround(args):
         sys.exit(1)                 # terminate with error
     # parent (forked ok)
     else:
-        pidRunning[rc] = pid
+        pidRunning.append(rc)
         os.write(1, ("Parent: My pid=%d.  Child's pid=%d\n" % 
                     (pid, rc)).encode())
 
@@ -67,20 +68,22 @@ def parseCommand():
 
 def checkZombie():
     print('checking zombie')
-    while pidRunning.keys():
-        if (waitResult := os.waitid(os.P_ALL, 0, os.WNOHANG | os.WEXITED)):
-            zPid, zStatus = waitResult.si_pid, waitResult.si_status
-            print(f"""zombie reaped:
-            \tpid={zPid}, status={zStatus}
-            \tparent was {pidRunning[zPid]}""")
-            del pidRunning[zPid]
-        else:
-            break               # no zombies; break from loop
+    if len(pidRunning) <= 0:
+        return
+    if (waitResult := os.waitid(os.P_ALL, 0, os.WEXITED | os.WNOHANG)):
+        print(waitResult)
+        zPid, zStatus = waitResult.si_pid, waitResult.si_status
+        print(f"""zombie reaped:\tpid={zPid}, status={zStatus}""")
+        pidRunning.remove(zPid)
+        print('reaped')
+    else:
+        print('nothing to reap')
+        return               # no zombies; break from loop
 
 while True:
-    checkZombie()
     userCommand = input('erikShell$ ')
     if userCommand.lower() == 'exit':
         exit()
+    checkZombie()
     parseCommand()
     print(pidRunning)
