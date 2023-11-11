@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-import os, sys, re
+import os, sys, re, time
 
 pidRunning = []
 
@@ -81,6 +81,7 @@ def checkZombie():
         return               # no zombies; break from loop
 
 while True:
+    time.sleep(0.1)
     userCommand = input('erikShell$ ')
     if userCommand.lower() == 'exit':
         exit()
