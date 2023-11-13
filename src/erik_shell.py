@@ -4,6 +4,26 @@ import os, sys, re, time
 
 pidRunning = []
 
+def redirectCheck(args):
+    if ">" in args:
+        indexRedir = args.index(">")
+        os.close(1)
+        os.open(args[indexRedir + 1], os.O_CREAT | os.O_WRONLY)
+        os.set_inheritable(1,True)
+        del args[indexRedir + 1]
+        del args[indexRedir]
+        return args
+    elif "<" in args:
+        indexRedir = args.index("<")
+        os.close(0)
+        os.open(args[indexRedir + 1], os.O_RDONLY)
+        os.set_inheritable(0,True)
+        del args[indexRedir + 1]
+        del args[indexRedir]
+        return args
+    else:
+        return args
+
 def runProcess(args):
     pid = os.getpid()
     rc = os.fork()
@@ -13,6 +33,7 @@ def runProcess(args):
         sys.exit(1)
     # child
     elif rc == 0:
+        args = redirectCheck(args)
         for dir in re.split(":", os.environ['PATH']): # try each directory in the path
             program = "%s/%s" % (dir, args[0])
             try:
@@ -40,6 +61,7 @@ def runProcessBackGround(args):
         sys.exit(1)
     # child
     elif rc == 0:
+        args = redirectCheck(args)
         for dir in re.split(":", os.environ['PATH']): # try each directory in the path
             program = "%s/%s" % (dir, args[0])
             try:
@@ -54,7 +76,7 @@ def runProcessBackGround(args):
     else:
         pidRunning.append(rc)
         os.write(1, ("Parent: My pid=%d.  Child's pid=%d\n" % 
-                    (pid, rc)).encode())
+                    (pid, rc)).encode())      
 
 def parseCommand():
     parsedCommand = userCommand.split()
