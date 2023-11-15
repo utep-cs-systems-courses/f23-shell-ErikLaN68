@@ -100,6 +100,7 @@ def pipeProcessLeft(pipeWrite,pipeRead,parentPid,args):
         temp = os.dup(pipeWrite)
         for fd in (pipeWrite, pipeRead):
             os.close(fd)
+        os.set_inheritable(1,True)
         print(str(temp),file=sys.stderr)
         for dir in re.split(":", os.environ['PATH']): # try each directory in the path
             program = "%s/%s" % (dir, args[0])
@@ -126,6 +127,7 @@ def pipeProcessRight(pipeWrite,pipeRead,parentPid,args):
         for fd in (pipeWrite, pipeRead):
             os.close(fd)
         print(str(temp),file=sys.stderr)
+        os.set_inheritable(0,True)
         for dir in re.split(":", os.environ['PATH']): # try each directory in the path
             program = "%s/%s" % (dir, args[0])
             try:
