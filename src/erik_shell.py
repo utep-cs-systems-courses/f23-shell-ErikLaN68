@@ -29,7 +29,7 @@ def runProcess(args):
     rc = os.fork()
 
     if rc < 0:
-        os.write(2, ("fork failed, returning %d\n" % rc).encode())
+        #os.write(2, ("fork failed, returning %d\n" % rc).encode())
         sys.exit(1)
     # child
     elif rc == 0:
@@ -40,24 +40,17 @@ def runProcess(args):
                 os.execve(program, args, os.environ) # try to exec program
             except FileNotFoundError:             # ...expected
                 pass                              # ...fail quietly
-
-        os.write(2, ("Child:    Could not exec %s\n" % args[0]).encode())
+        os.write(1, ("not a command %s\n" % args[0]).encode())
         sys.exit(1)                 # terminate with error
     # parent (forked ok)
     else:
-        os.write(1, ("Parent: My pid=%d.  Child's pid=%d\n" % 
-                    (pid, rc)).encode())
-        # waits for child to exit out
         childPidCode = os.wait()
-        os.write(1, ("Parent: Child %d terminated with exit code %d\n" % 
-                    childPidCode).encode())
 
 def runProcessBackGround(args):
     pid = os.getpid()
     rc = os.fork()
 
     if rc < 0:
-        os.write(2, ("fork failed, returning %d\n" % rc).encode())
         sys.exit(1)
     # child
     elif rc == 0:
@@ -69,14 +62,11 @@ def runProcessBackGround(args):
                 os.execve(program, args, os.environ) # try to exec program
             except FileNotFoundError:             # ...expected
                 pass                              # ...fail quietly
-
-        os.write(2, ("Child:    Could not exec %s\n" % args[0]).encode())
+        os.write(1, ("not a command %s\n" % args[0]).encode())    
         sys.exit(1)                 # terminate with error
     # parent (forked ok)
     else:
-        pidRunning.append(rc)
-        os.write(1, ("Parent: My pid=%d.  Child's pid=%d\n" % 
-                    (pid, rc)).encode())      
+        pidRunning.append(rc)    
 
 def pipeHandle(args):
     pid = os.getpid()
@@ -84,7 +74,6 @@ def pipeHandle(args):
     # dont need this the inheritablity needs to be set in the child
     # for fd in (pread, pwrite):
     #     os.set_inheritable(fd, True)
-    print("pipe fds: pread=%d, pwrite=%d" % (pread, pwrite))
     pipeProcessLeft(pwrite,pread,pid,args[0:args.index('|')])
     pipeProcessRight(pwrite,pread,pid,args[args.index('|')+1:len(args)])
     
@@ -92,17 +81,13 @@ def pipeProcessLeft(pipeWrite,pipeRead,parentPid,args):
     rc = os.fork()
     
     if rc < 0:
-        print("fork failed, returning %d\n" % rc, file=sys.stderr)
         sys.exit(1)
     elif rc == 0:                   #  child - will write to pipe
-        print("Child: My pid==%d.  Parent's pid=%d" % (os.getpid(), parentPid), file=sys.stderr)
         os.close(1)                 # redirect child's stdout
-        print(str(pipeWrite),file=sys.stderr)
         temp = os.dup(pipeWrite)
         for fd in (pipeWrite, pipeRead):
             os.close(fd)
         os.set_inheritable(1,True)
-        print(str(temp),file=sys.stderr)
         for dir in re.split(":", os.environ['PATH']): # try each directory in the path
             program = "%s/%s" % (dir, args[0])
             try:
@@ -110,24 +95,22 @@ def pipeProcessLeft(pipeWrite,pipeRead,parentPid,args):
                 os.execve(program, args, os.environ) # try to exec program
             except FileNotFoundError:             # ...expected
                 pass                              # ...fail quietly
+        os.write(2, ("Error: Could not exec %s\n" % args[0]).encode())
+        exit()
     else:
-        print("Parent: My pid==%d.  Child's pid=%d" % (os.getpid(), rc), file=sys.stderr)
-        os.wait()
+        status = os.wait()
+        #print(status)
 
 def pipeProcessRight(pipeWrite,pipeRead,parentPid,args):
     rc = os.fork()
     
     if rc < 0:
-        print("fork failed, returning %d\n" % rc, file=sys.stderr)
         sys.exit(1)
     elif rc == 0:                   #  child - will write to pipe
-        print("Child: My pid==%d.  Parent's pid=%d" % (os.getpid(), parentPid), file=sys.stderr)
         os.close(0)                 # redirect child's stdout
-        print(str(pipeRead),file=sys.stderr)
         temp = os.dup(pipeRead)
         for fd in (pipeWrite, pipeRead):
             os.close(fd)
-        print(str(temp),file=sys.stderr)
         os.set_inheritable(0,True)
         for dir in re.split(":", os.environ['PATH']): # try each directory in the path
             program = "%s/%s" % (dir, args[0])
@@ -136,8 +119,9 @@ def pipeProcessRight(pipeWrite,pipeRead,parentPid,args):
                 os.execve(program, args, os.environ) # try to exec program
             except FileNotFoundError:             # ...expected
                 pass                              # ...fail quietly
+        os.write(2, ("Error: Could not exec %s\n" % args[0]).encode())
+        exit()
     else:
-        print("Parent: My pid==%d.  Child's pid=%d" % (os.getpid(), rc), file=sys.stderr)
         for fd in (pipeWrite, pipeRead):
             os.close(fd)
         os.wait()
@@ -154,6 +138,8 @@ def parseCommand():
     if len(parsedCommand) == 0 or 'PS1=' in parsedCommand[0]:
         return
     if parsedCommand[0] == 'cd':
+        if (len(parsedCommand) < 2):
+            return
         changeDir(parsedCommand[1])
     elif '|' in parsedCommand:
         pipeHandle(parsedCommand)
@@ -164,23 +150,21 @@ def parseCommand():
         runProcess(parsedCommand)
 
 def checkZombie():
-    print('checking zombie')
     if len(pidRunning) <= 0:
         return
     if (waitResult := os.waitid(os.P_ALL, 0, os.WEXITED | os.WNOHANG)):
-        print(waitResult)
+        # print(waitResult)
         zPid, zStatus = waitResult.si_pid, waitResult.si_status
-        print(f"""zombie reaped:\tpid={zPid}, status={zStatus}""")
+        # print(f"""zombie reaped:\tpid={zPid}, status={zStatus}""")
         pidRunning.remove(zPid)
-        print('reaped')
+        print('reaper killed ' + str(zPid))
     else:
-        print('nothing to reap')
         return               # no zombies; break from loop
 
 shellVar = '$'
 
 while True:
-    time.sleep(0.1)
+    time.sleep(0.5)
     userCommand = input(os.getcwd()+shellVar+' ')
     if userCommand.lower() == 'exit':
         exit()
@@ -188,4 +172,5 @@ while True:
         shellVar = userCommand[4:len(userCommand):1]
     checkZombie()
     parseCommand()
-    #print(pidRunning)
+    if (len(pidRunning) > 0):
+        print('Processes in the background: ' + str(pidRunning))
