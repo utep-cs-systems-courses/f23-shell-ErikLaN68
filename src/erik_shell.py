@@ -81,8 +81,9 @@ def runProcessBackGround(args):
 def pipeHandle(args):
     pid = os.getpid()
     pread,pwrite = os.pipe()
-    for fd in (pread, pwrite):
-        os.set_inheritable(fd, True)
+    # dont need this the inheritablity needs to be set in the child
+    # for fd in (pread, pwrite):
+    #     os.set_inheritable(fd, True)
     print("pipe fds: pread=%d, pwrite=%d" % (pread, pwrite))
     pipeProcessLeft(pwrite,pread,pid,args[0:args.index('|')])
     pipeProcessRight(pwrite,pread,pid,args[args.index('|')+1:len(args)])
