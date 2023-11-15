@@ -78,6 +78,67 @@ def runProcessBackGround(args):
         os.write(1, ("Parent: My pid=%d.  Child's pid=%d\n" % 
                     (pid, rc)).encode())      
 
+def pipeHandle(args):
+    pid = os.getpid()
+    pread,pwrite = os.pipe()
+    for fd in (pread, pwrite):
+        os.set_inheritable(fd, True)
+    print("pipe fds: pread=%d, pwrite=%d" % (pread, pwrite))
+    pipeProcessLeft(pwrite,pread,pid,args[0:args.index('|')])
+    pipeProcessRight(pwrite,pread,pid,args[args.index('|')+1:len(args)])
+    
+def pipeProcessLeft(pipeWrite,pipeRead,parentPid,args):
+    rc = os.fork()
+    
+    if rc < 0:
+        print("fork failed, returning %d\n" % rc, file=sys.stderr)
+        sys.exit(1)
+    elif rc == 0:                   #  child - will write to pipe
+        print("Child: My pid==%d.  Parent's pid=%d" % (os.getpid(), parentPid), file=sys.stderr)
+        os.close(1)                 # redirect child's stdout
+        print(str(pipeWrite),file=sys.stderr)
+        temp = os.dup(pipeWrite)
+        for fd in (pipeWrite, pipeRead):
+            os.close(fd)
+        print(str(temp),file=sys.stderr)
+        for dir in re.split(":", os.environ['PATH']): # try each directory in the path
+            program = "%s/%s" % (dir, args[0])
+            try:
+                # pidRunning[rc] = pid
+                os.execve(program, args, os.environ) # try to exec program
+            except FileNotFoundError:             # ...expected
+                pass                              # ...fail quietly
+    else:
+        print("Parent: My pid==%d.  Child's pid=%d" % (os.getpid(), rc), file=sys.stderr)
+        os.wait()
+
+def pipeProcessRight(pipeWrite,pipeRead,parentPid,args):
+    rc = os.fork()
+    
+    if rc < 0:
+        print("fork failed, returning %d\n" % rc, file=sys.stderr)
+        sys.exit(1)
+    elif rc == 0:                   #  child - will write to pipe
+        print("Child: My pid==%d.  Parent's pid=%d" % (os.getpid(), parentPid), file=sys.stderr)
+        os.close(0)                 # redirect child's stdout
+        print(str(pipeRead),file=sys.stderr)
+        temp = os.dup(pipeRead)
+        for fd in (pipeWrite, pipeRead):
+            os.close(fd)
+        print(str(temp),file=sys.stderr)
+        for dir in re.split(":", os.environ['PATH']): # try each directory in the path
+            program = "%s/%s" % (dir, args[0])
+            try:
+                # pidRunning[rc] = pid
+                os.execve(program, args, os.environ) # try to exec program
+            except FileNotFoundError:             # ...expected
+                pass                              # ...fail quietly
+    else:
+        print("Parent: My pid==%d.  Child's pid=%d" % (os.getpid(), rc), file=sys.stderr)
+        for fd in (pipeWrite, pipeRead):
+            os.close(fd)
+        os.wait()
+
 def changeDir(command):
     try:
         os.chdir(command)
@@ -91,6 +152,8 @@ def parseCommand():
         return
     if parsedCommand[0] == 'cd':
         changeDir(parsedCommand[1])
+    elif '|' in parsedCommand:
+        pipeHandle(parsedCommand)
     elif parsedCommand[-1] == '&':
         parsedCommand.remove('&')
         runProcessBackGround(parsedCommand)
@@ -122,4 +185,4 @@ while True:
         shellVar = userCommand[4:len(userCommand):1]
     checkZombie()
     parseCommand()
-    print(pidRunning)
+    #print(pidRunning)
