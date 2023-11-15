@@ -78,11 +78,20 @@ def runProcessBackGround(args):
         os.write(1, ("Parent: My pid=%d.  Child's pid=%d\n" % 
                     (pid, rc)).encode())      
 
+def changeDir(command):
+    try:
+        os.chdir(command)
+    except FileNotFoundError as e:
+        print('Not a directory')
+    return
+
 def parseCommand():
     parsedCommand = userCommand.split()
-    if len(parsedCommand) == 0:
+    if len(parsedCommand) == 0 or 'PS1=' in parsedCommand[0]:
         return
-    if parsedCommand[-1] == '&':
+    if parsedCommand[0] == 'cd':
+        changeDir(parsedCommand[1])
+    elif parsedCommand[-1] == '&':
         parsedCommand.remove('&')
         runProcessBackGround(parsedCommand)
     else:
@@ -102,11 +111,15 @@ def checkZombie():
         print('nothing to reap')
         return               # no zombies; break from loop
 
+shellVar = '$'
+
 while True:
     time.sleep(0.1)
-    userCommand = input('erikShell$ ')
+    userCommand = input(os.getcwd()+shellVar+' ')
     if userCommand.lower() == 'exit':
         exit()
+    if 'PS1=' in userCommand:
+        shellVar = userCommand[4:len(userCommand):1]
     checkZombie()
     parseCommand()
     print(pidRunning)
