@@ -40,6 +40,8 @@ def runProcess(args):
                 os.execve(program, args, os.environ) # try to exec program
             except FileNotFoundError:             # ...expected
                 pass                              # ...fail quietly
+            except PermissionError:
+                pass
         os.write(1, ("not a command %s\n" % args[0]).encode())
         sys.exit(1)                 # terminate with error
     # parent (forked ok)
@@ -62,6 +64,8 @@ def runProcessBackGround(args):
                 os.execve(program, args, os.environ) # try to exec program
             except FileNotFoundError:             # ...expected
                 pass                              # ...fail quietly
+            except PermissionError:
+                pass
         os.write(1, ("not a command %s\n" % args[0]).encode())    
         sys.exit(1)                 # terminate with error
     # parent (forked ok)
@@ -95,6 +99,8 @@ def pipeProcessLeft(pipeWrite,pipeRead,parentPid,args):
                 os.execve(program, args, os.environ) # try to exec program
             except FileNotFoundError:             # ...expected
                 pass                              # ...fail quietly
+            except PermissionError:
+                pass
         os.write(2, ("Error: Could not exec %s\n" % args[0]).encode())
         exit()
     else:
@@ -119,6 +125,8 @@ def pipeProcessRight(pipeWrite,pipeRead,parentPid,args):
                 os.execve(program, args, os.environ) # try to exec program
             except FileNotFoundError:             # ...expected
                 pass                              # ...fail quietly
+            except PermissionError:
+                pass
         os.write(2, ("Error: Could not exec %s\n" % args[0]).encode())
         exit()
     else:
